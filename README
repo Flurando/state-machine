@@ -1,0 +1,36 @@
+这里我们需要一个DSL，主要用于抽象并简化状态机相关内容。
+比如定义各种状态，定义状态如何通过输入转化为另一个状态，对一个字符串应用状态机等等。
+目前考虑是通过Guile Scheme语言写一个。
+需要抽象隐藏的内容是遍历字符串，遍历三元组之类的。
+
+可互动元素设计如下：
+1. State
+用来表示一个状态。
+该状态应当有一个函数，其接受一个输入，并根据需要返回结束值或表示需要跳转。
+这个函数应当声明后可以修改，这样我们可以事后进行各个状态的连接。
+2. Connector
+在State表示需要跳转（认为无法成为最终输出）后由Connecter接过并选择进入给定的后续State
+内含一个空列表放后续State
+3. Machine
+包含一组已经用Connecter连接好的State，由于我们使用类似链表的形式，所以这里可能只是头State
+
+暴露的API设计如下：
+1. (define-state name resolver)
+默认额外生成一个可写的空connector槽
+resolver接受一个输入，不允许输出其它State，输出'()时表示应当有connector处理，其它输出认为状态机运行完成。
+2. (define-connector name resolver)
+resolver接受一个输入，只允许输出列表合法下标，其输出将被用于在lower-states列表内将状态更新为对应State
+3. (connect! connector upper-states lower-states)
+后面两个参数均为State的列表
+将upper-states的所有State内的connector均设置为此处的connector，将这个connector内的空列表设置为lower-states。
+这里是覆盖式的修改，不是增量，使用时需要注意。
+4. (define-machine name first-point)
+first-point内的resolver将作为起始。
+目前不支持多起点。
+5. (run machine list-of-inputs)
+一个个传入并同步状态。
+
+帮助函数有：
+1. (evaluate-string machine string)
+2. (evaluate-file machine filename)
+这两个帮助函数仅帮助将string或filename改成list-of-inputs，一个个char的列表并对其使用run函数，没有任何流式处理，就是整个文件都读入内存。

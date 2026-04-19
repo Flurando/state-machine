@@ -21,9 +21,10 @@
 	    run))
 
 (define-record-type <state>
-  (make-state name resolver connector)
+  (make-state name validator resolver connector)
   state?
   (name state-name)
+  (validator state-validator set-state-validator!)
   (resolver state-resolver set-state-resolver!)
   (connector state-connector set-state-connector!))
 (define-record-type <connector>
@@ -54,11 +55,11 @@
 (define-syntax define-state
   (lambda (x)
     (syntax-case x ()
-      ((_ name resolver)
-       (with-syntax ((scene-name (datum->syntax #'name (syntax->datum #'name)))
+      ((_ name validator)
+       (with-syntax ((state-name (datum->syntax #'name (syntax->datum #'name)))
 		     (str-name (symbol->string (syntax->datum #'name)))
-		     (scene-resolver (datum->syntax #'resolver (syntax->datum #'resolver))))
-	 #`(define scene-name (make-state str-name scene-resolver #f)))))))
+		     (state-validator (datum->syntax #'validator (syntax->datum #'validator))))
+	 #`(define state-name (make-state str-name state-validator #f #f)))))))
 (define-syntax define-connector
   (lambda (x)
     (syntax-case x ()
@@ -84,11 +85,16 @@
   (let loop ((current-state (machine-first-point machine))
 	     (inputs list-of-inputs))
     (if (null? inputs)
-	current-state
+	(begin (display current-state)
+	       (newline)
+	       current-state)
 	(let* ((input (car inputs))
-	       (state-res ((state-resolver current-state) input)))
-	  (if state-res
-	      (loop current-state (cdr inputs))
+	       (state-valid-or-not ((state-validator current-state) input)))
+	  (format #t "~a --~a--> " current-state input)
+	  (if state-valid-or-not
+	      (begin (display current-state)
+		     (newline)
+		     (loop current-state (cdr inputs)))
 	      (let ((conn (state-connector current-state)))
 		(let ((resolver (connector-resolver conn))
 		      (lower-states (connector-lower-states conn)))
